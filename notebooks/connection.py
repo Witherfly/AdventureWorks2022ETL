@@ -13,29 +13,25 @@ def build_db_url(config):
 
 def connect(schema):
     config = load_config('../config_fill.yml')
-    config_co = config['CO_SA']
-    config_etl = config['ETL_PRO']
-    config_etl_or = config['ETL_PRO_OR']
+    db_configs = {
+        'oltp': config['CO_SA'],
+        'etl': config['ETL_PRO'],
+        'etl_or': config['ETL_PRO_OR']
+    }
 
-    url_co = build_db_url(config_co)
-    url_etl = build_db_url(config_etl)
-    url_etl_or = build_db_url(config_etl_or)
+    engines = {key: create_engine(build_db_url(cfg)) for key, cfg in db_configs.items()}
 
-    co_oltp = create_engine(url_co)
-    etl_conn = create_engine(url_etl)
-    etl_conn_or = create_engine(url_etl_or)
+    inspector_oltp = inspect(engines['oltp'])
+    inspector_etl = inspect(engines['etl'])
+    oltp_tables = inspector_oltp.get_table_names(schema=schema)
+    etl_tables = inspector_etl.get_table_names()
 
-    inspector2 = inspect(co_oltp)
-    inspector = inspect(etl_conn)
-    tnames = inspector.get_table_names()
-    tnames2 = inspector2.get_table_names(schema=schema)
-
-    print(tnames2)
-    if not tnames:
-        with etl_conn.connect() as conn:
+    print(oltp_tables)
+    if not etl_tables:
+        with engines['etl'].connect() as conn:
             with open('../sqlscripts.yml', 'r') as f:
                 sql = yaml.safe_load(f)
                 for key, val in sql.items():
                     conn.execute(text(val))
             conn.commit()
-    return co_oltp, etl_conn, etl_conn_or
+    return engines['oltp'], engines['etl'], engines['etl_or']
