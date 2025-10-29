@@ -26,12 +26,11 @@ def connect(schema):
     oltp_tables = inspector_oltp.get_table_names(schema=schema)
     etl_tables = inspector_etl.get_table_names()
 
-    print(oltp_tables)
+    print(f"OLTP tables in schema '{schema}': {oltp_tables}")
+
     if not etl_tables:
+        sql_scripts = load_config('../sqlscripts.yml')
         with engines['etl'].connect() as conn:
-            with open('../sqlscripts.yml', 'r') as f:
-                sql = yaml.safe_load(f)
-                for key, val in sql.items():
-                    conn.execute(text(val))
-            conn.commit()
+            for query in sql_scripts.values():
+                conn.execute(text(query))
     return engines['oltp'], engines['etl'], engines['etl_or']
